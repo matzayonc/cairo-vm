@@ -362,16 +362,6 @@ impl CairoRunner {
                     .push(ModBuiltinRunner::new_mul_mod(instance_def, included).into());
             }
         }
-
-        // if let Some(instance_def) = self.layout.builtins.mul_mod.as_ref() {
-        //     let included = program_builtins.remove(&BuiltinName::);
-        //     if included || self.is_proof_mode() {
-        //         self.vm
-        //             .builtin_runners
-        //             .push(ModBuiltinRunner::new_mul_mod(instance_def, included).into());
-        //     }
-        // }
-
         if !program_builtins.is_empty() && !allow_missing_builtins {
             return Err(RunnerError::NoBuiltinForInstance(Box::new((
                 program_builtins.iter().map(|n| **n).collect(),

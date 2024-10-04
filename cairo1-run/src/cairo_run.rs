@@ -138,7 +138,6 @@ pub fn cairo_run_program(
     let casm_program =
         cairo_lang_sierra_to_casm::compiler::compile(sierra_program, &metadata, config).unwrap();
 
-    // let main_func = find_function(sierra_program, "::__wrapper__HelloStarknetImpl__get_balance")?;
     let main_func = find_function(sierra_program, "::main")?;
 
     let initial_gas = 9999999999999_usize;
