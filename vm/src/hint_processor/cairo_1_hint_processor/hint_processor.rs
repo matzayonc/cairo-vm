@@ -78,18 +78,9 @@ impl Cairo1HintProcessor {
         exec_scopes: &mut ExecutionScopes,
         hint: &Hint,
     ) -> Result<(), HintError> {
-        // dbg!(hint);
         match hint {
             Hint::Core(CoreHintBase::Core(CoreHint::AllocSegment { dst })) => {
-                if let Err(e) = self.alloc_segment(vm, dst) {
-                    use std::io::Write;
-                    writeln!(
-                        std::io::stderr(),
-                        "Wartning: Hint Skipped! Alloc Error: {e:?}"
-                    )
-                    .unwrap();
-                }
-                Ok(())
+                self.alloc_segment(vm, dst)
             }
             Hint::Core(CoreHintBase::Core(CoreHint::TestLessThan { lhs, rhs, dst })) => {
                 self.test_less_than(vm, lhs, rhs, dst)
@@ -1238,9 +1229,9 @@ impl HintProcessorLogic for Cairo1HintProcessor {
         //Constant values extracted from the program specification.
         _constants: &HashMap<String, Felt252>,
     ) -> Result<(), HintError> {
-        let hints: &Vec<Hint> = hint_data.downcast_ref().unwrap();
+        let hints: &Vec<Hint> = hint_data.downcast_ref().ok_or(HintError::WrongHintData)?;
         for hint in hints {
-            self.execute(vm, exec_scopes, hint).unwrap();
+            self.execute(vm, exec_scopes, hint)?;
         }
         Ok(())
     }

@@ -194,7 +194,7 @@ pub fn cairo_run_program(
         libfunc_footer.iter(),
     );
 
-    let (processor_hints, program_hints) = build_hints_vec(instructions.clone().into_iter());
+    let (processor_hints, program_hints) = build_hints_vec(instructions.clone());
 
     let mut hint_processor = Cairo1HintProcessor::new(
         &processor_hints,
@@ -306,7 +306,10 @@ pub fn cairo_run_program(
                     .iter()
                     .enumerate()
                     .map(|(i, builtin)| {
-                        (*builtin, (runner.vm.get_ap() - (builtins.len() - 1 - i))?)
+                        (
+                            *builtin,
+                            (runner.vm.get_ap() - (builtins.len() - 1 - i)).unwrap(),
+                        )
                     })
                     .collect(),
                 false,

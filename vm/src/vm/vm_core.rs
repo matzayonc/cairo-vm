@@ -348,7 +348,7 @@ impl VirtualMachine {
             Opcode::AssertEq => match &operands.res {
                 None => Err(VirtualMachineError::UnconstrainedResAssertEq),
                 Some(res) if res != &operands.dst => Err(VirtualMachineError::DiffAssertValues(
-                    Box::new((dbg!(operands).dst.clone(), res.clone())),
+                    Box::new((operands.dst.clone(), res.clone())),
                 )),
                 _ => Ok(()),
             },
@@ -403,10 +403,9 @@ impl VirtualMachine {
 
     fn run_instruction(&mut self, instruction: &Instruction) -> Result<(), VirtualMachineError> {
         let (operands, operands_addresses, deduced_operands) =
-            self.compute_operands(instruction).unwrap();
-        self.insert_deduced_operands(deduced_operands, &operands, &operands_addresses)
-            .unwrap();
-        self.opcode_assertions(instruction, &operands).unwrap();
+            self.compute_operands(instruction)?;
+        self.insert_deduced_operands(deduced_operands, &operands, &operands_addresses)?;
+        self.opcode_assertions(instruction, &operands)?;
 
         if let Some(ref mut trace) = &mut self.trace {
             trace.push(TraceEntry {
@@ -439,7 +438,7 @@ impl VirtualMachine {
             .memory
             .mark_as_accessed(operands_addresses.op1_addr);
 
-        self.update_registers(instruction, operands).unwrap();
+        self.update_registers(instruction, operands)?;
         self.current_step += 1;
 
         Ok(())
@@ -463,10 +462,10 @@ impl VirtualMachine {
         hint_datas: &[Box<dyn Any>],
         constants: &HashMap<String, Felt252>,
     ) -> Result<(), VirtualMachineError> {
-        for (_hint_index, hint_data) in hint_datas.iter().enumerate() {
+        for (hint_index, hint_data) in hint_datas.iter().enumerate() {
             hint_processor
                 .execute_hint(self, exec_scopes, hint_data, constants)
-                .unwrap();
+                .map_err(|err| VirtualMachineError::Hint(Box::new((hint_index, err))))?;
         }
         Ok(())
     }
@@ -512,20 +511,20 @@ impl VirtualMachine {
             let pc = self.run_context.pc.offset;
 
             if self.segments.memory.data[0].len() <= pc {
-                return Err(MemoryError::UnknownMemoryCell(Box::new((0, pc).into()))).unwrap();
+                return Err(MemoryError::UnknownMemoryCell(Box::new((0, pc).into())))?;
             }
 
             let mut inst_cache = core::mem::take(&mut self.instruction_cache);
             inst_cache.resize((pc + 1).max(inst_cache.len()), None);
 
-            let instruction = inst_cache.get_mut(pc).unwrap();
+            let instruction = inst_cache.get_mut(pc)?;
             if instruction.is_none() {
-                *instruction = Some(self.decode_current_instruction().unwrap());
+                *instruction = Some(self.decode_current_instruction()?);
             }
-            let instruction = instruction.as_ref().unwrap();
+            let instruction = instruction.as_ref()?;
 
             if !self.skip_instruction_execution {
-                self.run_instruction(instruction).unwrap();
+                self.run_instruction(instruction)?;
             } else {
                 self.run_context.pc += instruction.size();
                 self.skip_instruction_execution = false;
@@ -533,10 +532,10 @@ impl VirtualMachine {
             self.instruction_cache = inst_cache;
         } else {
             // Run instructions from programs loaded in other segments, without instruction cache
-            let instruction = self.decode_current_instruction().unwrap();
+            let instruction = self.decode_current_instruction()?;
 
             if !self.skip_instruction_execution {
-                self.run_instruction(&instruction).unwrap();
+                self.run_instruction(&instruction)?;
             } else {
                 self.run_context.pc += instruction.size();
                 self.skip_instruction_execution = false;
@@ -561,16 +560,13 @@ impl VirtualMachine {
             #[cfg(feature = "extensive_hints")]
             hint_ranges,
             constants,
-        )
-        .unwrap();
+        )?;
 
         #[cfg(feature = "test_utils")]
-        self.execute_pre_step_instruction(hint_processor, exec_scopes, hint_datas, constants)
-            .unwrap();
-        self.step_instruction().unwrap();
+        self.execute_pre_step_instruction(hint_processor, exec_scopes, hint_datas, constants)?;
+        self.step_instruction()?;
         #[cfg(feature = "test_utils")]
-        self.execute_post_step_instruction(hint_processor, exec_scopes, hint_datas, constants)
-            .unwrap();
+        self.execute_post_step_instruction(hint_processor, exec_scopes, hint_datas, constants)?;
 
         Ok(())
     }
@@ -605,7 +601,7 @@ impl VirtualMachine {
         dst_op: &Option<MaybeRelocatable>,
         op0: &MaybeRelocatable,
     ) -> Result<MaybeRelocatable, VirtualMachineError> {
-        let op1_op = match self.deduce_memory_cell(op1_addr).unwrap() {
+        let op1_op = match self.deduce_memory_cell(op1_addr)? {
             None => {
                 let (op1, deduced_res) =
                     self.deduce_op1(instruction, dst_op.as_ref(), Some(op0.clone()))?;
