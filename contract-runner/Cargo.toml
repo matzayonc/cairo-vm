@@ -30,6 +30,7 @@ rstest = "0.17.0"
 mimalloc = { version = "0.1.37", default-features = false, optional = true }
 num-traits = { version = "0.2", default-features = false }
 num-bigint.workspace = true
+starknet = "0.11.0"
 
 [features]
 default = ["with_mimalloc"]

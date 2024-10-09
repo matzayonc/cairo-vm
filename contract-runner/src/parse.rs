@@ -1,9 +1,7 @@
+use starknet::core::utils::get_selector_from_name;
 use std::path::PathBuf;
 
 pub fn parse(filename: &PathBuf) {
-    println!("Parsing file: {}", filename.display());
-    let file_content = std::fs::read_to_string(filename).expect("Failed to read file");
-
     use std::env;
 
     let current_dir = env::current_dir().expect("Failed to get current directory");
@@ -34,9 +32,6 @@ pub fn parse(filename: &PathBuf) {
         let expanded_file_path = Path::new("../target/dev/cairo_ex.expanded.cairo");
         match std::fs::read_to_string(expanded_file_path) {
             Ok(expanded_content) => {
-                println!("Expanded Cairo file content:");
-                println!("{}", expanded_content);
-
                 let updated = prepare(expanded_content);
                 // Save the updated content to checker.cairo
                 let checker_file_path = Path::new("checker.cairo");
@@ -54,12 +49,51 @@ pub fn parse(filename: &PathBuf) {
 
     // Change back to the original directory
     std::env::set_current_dir(current_dir).expect("Failed to change back to original directory");
-
-    println!("File content: {}", file_content);
 }
 
 fn prepare(expanded_content: String) -> String {
     let lines = expanded_content.lines().collect::<Vec<&str>>();
+
+    let mut entrypoints = Vec::new();
+
+    for l in lines.iter() {
+        if l.contains("fn ") {
+            if let Some(start_index) = l.find("fn ") {
+                if let Some(end_index) = l[start_index..].find('(') {
+                    let function_name = l[start_index + 3..start_index + end_index].trim();
+                    entrypoints.push(function_name.to_string());
+                }
+            }
+        } else if l.contains("}") {
+            break;
+        }
+    }
+
+    let entrypoints = entrypoints
+        .into_iter()
+        .map(|n| {
+            (
+                get_selector_from_name(&n)
+                    .expect("invalid selector name")
+                    .to_string(),
+                n,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    dbg!(&entrypoints);
+
+    let dispatch_calls = entrypoints
+        .into_iter()
+        .map(|(n, s)| {
+            let call = format!(
+                "cairo_ex::HelloStarknet::__wrapper__HelloStarknetImpl__{s}(call.calldata)"
+            );
+            format!("if call.selector == {n} {{{call}}} else ",)
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
     let mut updated_lines = Vec::new();
 
     let mut skip_lines = 0;
@@ -95,7 +129,7 @@ fn prepare(expanded_content: String) -> String {
         updated_lines.push("}}".to_string());
     }
 
-    let main = r#"
+    let header = r#"
         #[derive(Serde, Drop)]
         struct Calls {
             selector: felt252,
@@ -119,9 +153,9 @@ fn prepare(expanded_content: String) -> String {
                     Option::None => { break; },
                 };
 
-                let ret = if call.selector == 3 {
-                    cairo_ex::HelloStarknet::__wrapper__HelloStarknetImpl__get_balance(call.calldata)
-                } else {
+                let ret = "#;
+
+    let footer = r#"{
                     panic(array!['Invalid selector']);
                     array![].span()
                 };
@@ -132,6 +166,8 @@ fn prepare(expanded_content: String) -> String {
             r
         }
     "#;
+
+    let main = format!("{header}{dispatch_calls}{footer}");
 
     updated_lines.push(main.to_string());
 
