@@ -1141,6 +1141,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "contract-runner"
+version = "1.0.1"
+dependencies = [
+ "assert_matches",
+ "bincode",
+ "cairo-lang-casm",
+ "cairo-lang-compiler",
+ "cairo-lang-sierra",
+ "cairo-lang-sierra-ap-change",
+ "cairo-lang-sierra-gas",
+ "cairo-lang-sierra-to-casm",
+ "cairo-lang-sierra-type-size",
+ "cairo-lang-starknet-classes",
+ "cairo-lang-utils",
+ "cairo-vm",
+ "clap",
+ "itertools 0.11.0",
+ "mimalloc",
+ "num-bigint",
+ "num-traits 0.2.19",
+ "rstest",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "convert_case"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
