@@ -11,6 +11,7 @@ use clap::{Parser, ValueHint};
 use contract_runner::error::Error;
 use contract_runner::{cairo_run_program, Cairo1RunConfig, FuncArg};
 use itertools::Itertools;
+use std::thread::sleep;
 use std::{
     io::{self, Write},
     path::PathBuf,
@@ -195,9 +196,31 @@ fn run(args: impl Iterator<Item = String>) -> Result<Option<String>, Error> {
 
             contract_runner::parse::parse(&args.filename);
 
+            let checker = args
+                .filename
+                .clone()
+                .parent()
+                .unwrap()
+                .join("checker.cairo");
+            let contract = args
+                .filename
+                .clone()
+                .parent()
+                .unwrap()
+                .join("contract.cairo");
+
+            std::fs::rename(&args.filename, &contract).unwrap();
+            std::fs::copy(&checker, &args.filename).unwrap();
+
+            sleep(std::time::Duration::from_secs(1));
+
+            // Compile the project
             let main_crate_ids = setup_project(&mut db, &args.filename).unwrap();
             let sierra_program_with_dbg =
                 compile_prepared_db(&db, main_crate_ids, compiler_config).unwrap();
+
+            // Restore original lib.cairo
+            std::fs::rename(&contract, &args.filename).unwrap();
 
             sierra_program_with_dbg.program
         }
